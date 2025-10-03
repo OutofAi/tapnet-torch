@@ -671,26 +671,34 @@ class TAPIR(hk.Module):
           return resnet_out['resnet_unit_3'], resnet_out['resnet_unit_1']
 
         if self.feature_extractor_chunk_size is not None:
+          if self.extra_convs is not None and self.extra_convs.use_tsm:
+            raise ValueError('use_tsm is not supported with chunking.')
           chunk_size = self.feature_extractor_chunk_size
-          latent = []
-          hires = []
+          latent = None
+          hires = None
           barrier = 0
           for i in range(0, video_resize.shape[1], chunk_size):
             u3, u1 = hk.remat(rnet_fwd)(
-                video_resize[:, i : i + chunk_size] + barrier
+                video_resize[:, i : i + chunk_size]
+                + barrier
             )
-            latent.append(u3)
-            hires.append(u1)
-            barrier = latent[-1][0, 0, 0, 0, 0] > 1e20
-          latent = jnp.concatenate(latent, axis=1)
-          hires = jnp.concatenate(hires, axis=1)
+            if self.extra_convs:
+              u3 = hk.BatchApply(self.extra_convs)(u3, is_training=is_training)
+            if latent is None:
+              n_pad = video_resize.shape[1] - u3.shape[1]
+              latent = jnp.pad(u3, [(0, 0), (0, n_pad), (0, 0), (0, 0), (0, 0)])
+              hires = jnp.pad(u1, [(0, 0), (0, n_pad), (0, 0), (0, 0), (0, 0)])
+            else:
+              latent = latent.at[:, i : i + chunk_size].set(u3)
+              hires = hires.at[:, i : i + chunk_size].set(u1)
+            barrier = u3[0, 0, 0, 0, 0] > 1e20
         else:
           latent, hires = hk.remat(rnet_fwd)(video_resize)
 
-        if self.extra_convs:
-          latent = hk.BatchApply(self.extra_convs)(
-              latent, is_training=is_training
-          )
+          if self.extra_convs:
+            latent = hk.BatchApply(self.extra_convs)(
+                latent, is_training=is_training
+            )
 
         latent = latent / jnp.sqrt(
             jnp.maximum(
@@ -1200,8 +1208,8 @@ class ParameterizedTAPIR:
 
   def __init__(
       self,
-      params,
-      state,
+      params=None,
+      state=None,
       tapir_kwargs=None,
   ):
     """Initializes a ParameterizedTAPIR model.
@@ -1232,11 +1240,11 @@ class ParameterizedTAPIR:
       return fn(*args, **kwargs)
 
     # We pass the above function into a Haiku transform that injects variables
-    def run(fn_name, *args, **kwargs):
+    def run(fn_name, *args, params=None, state=None, **kwargs):
       hk_fn = hk.transform_with_state(functools.partial(tapir_call, fn_name))
-      res = hk_fn.apply(
-          self._params, self._state, jax.random.PRNGKey(42), *args, **kwargs
-      )
+      params = params if params is not None else self._params
+      state = state if state is not None else self._state
+      res = hk_fn.apply(params, state, jax.random.PRNGKey(42), *args, **kwargs)
       return res[0]
 
     # For each function name in the list, monkey-patch the function onto this

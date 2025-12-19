@@ -18,4 +18,4 @@
 from tapnet.models import tapir_model  # pylint:disable=g-importing-member
 from tapnet.models import tapnet_model  # pylint:disable=g-importing-member
 from tapnet.robotap import tapir_clustering  # pylint:disable=g-importing-member
-from tapnet.tapvid import evaluation_datasets  # pylint:disable=g-importing-member
+# from tapnet.tapvid import evaluation_datasets  # pylint:disable=g-importing-member

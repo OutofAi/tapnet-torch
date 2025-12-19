@@ -5,6 +5,8 @@ version = "0.1.0"
 description = "Tracking-Any-Point codebase from Google DeepMind."
 dependencies = [
   "chex",
+  "jax",
+  "jaxline",
   "optax",
   "dm-haiku",
   "dm-tree",

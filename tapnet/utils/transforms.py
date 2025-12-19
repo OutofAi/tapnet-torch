@@ -17,12 +17,11 @@
 
 from typing import Sequence
 
-import chex
 import numpy as np
 
 
 def convert_grid_coordinates(
-    coords: chex.Array,
+    coords,
     input_grid_size: Sequence[int],
     output_grid_size: Sequence[int],
     coordinate_format: str = 'xy',

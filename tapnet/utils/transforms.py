@@ -25,7 +25,7 @@ def convert_grid_coordinates(
     input_grid_size: Sequence[int],
     output_grid_size: Sequence[int],
     coordinate_format: str = 'xy',
-)
+):
   """Convert image coordinates between image grids of different sizes.
 
   By default, it assumes that the image corners are aligned.  Therefore,
